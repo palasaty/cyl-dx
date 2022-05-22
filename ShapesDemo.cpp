@@ -24,6 +24,46 @@ struct Vertex
 	XMFLOAT3 Normal;
 };
 
+class RenderStates
+{
+public:
+	static void InitAll(ID3D11Device* device);
+	static void DestroyAll();
+
+	static ID3D11BlendState* TransparentBS;
+};
+
+
+ID3D11BlendState* RenderStates::TransparentBS = 0;
+
+void RenderStates::InitAll(ID3D11Device* device)
+{
+
+	//
+	// TransparentBS
+	//
+
+	D3D11_BLEND_DESC transparentDesc = { 0 };
+	transparentDesc.AlphaToCoverageEnable = false;
+	transparentDesc.IndependentBlendEnable = false;
+
+	transparentDesc.RenderTarget[0].BlendEnable = true;
+	transparentDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	transparentDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	transparentDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	transparentDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	transparentDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	transparentDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	transparentDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+	HR(device->CreateBlendState(&transparentDesc, &TransparentBS));
+}
+
+void RenderStates::DestroyAll()
+{
+	ReleaseCOM(TransparentBS);
+}
+
 
 class ShapesApp : public D3DApp
 {
@@ -83,6 +123,7 @@ private:
 
 	float mCylHeight;
 	float mCylRadius;
+	float mCylAlpha;
 
 	POINT mLastMousePos;
 };
@@ -108,7 +149,7 @@ ShapesApp::ShapesApp(HINSTANCE hInstance)
 : D3DApp(hInstance), mVB(0), mIB(0), mFX(0), mTech(0),
   mfxWorldViewProj(0), mInputLayout(0), mWireframeRS(0),
   mTheta(1.5f*MathHelper::Pi), mPhi(0.1f*MathHelper::Pi), mRadius(15.0f),
-  mCylHeight(5), mCylRadius(1.5)
+  mCylHeight(5), mCylRadius(1.5), mCylAlpha(1)
 {
 	mMainWndCaption = L"Demo";
 	
@@ -121,11 +162,10 @@ ShapesApp::ShapesApp(HINSTANCE hInstance)
 	mDirLight.Direction = XMFLOAT3(0.57735f, -0.57735f, 0.57735f);
 
 	mMaterial.Ambient = XMFLOAT4(0.48f, 0.77f, 0.46f, 1.0f);
-	mMaterial.Diffuse = XMFLOAT4(0.48f, 0.77f, 0.46f, 1.0f);
+	mMaterial.Diffuse = XMFLOAT4(0.48f, 0.77f, 0.46f, mCylAlpha);
 	mMaterial.Specular = XMFLOAT4(0.2f, 0.2f, 0.2f, 16.0f);
 
 	XMMATRIX I = XMMatrixIdentity();
-	//XMStoreFloat4x4(&mGridWorld, I);
 	XMStoreFloat4x4(&mView, I);
 	XMStoreFloat4x4(&mProj, I);
 
@@ -139,12 +179,16 @@ ShapesApp::~ShapesApp()
 	ReleaseCOM(mFX);
 	ReleaseCOM(mInputLayout);
 	ReleaseCOM(mWireframeRS);
+
+	RenderStates::DestroyAll();
 }
 
 bool ShapesApp::Init()
 {
 	if(!D3DApp::Init())
 		return false;
+
+	RenderStates::InitAll(md3dDevice);
 
 	BuildGeometryBuffers();
 	BuildFX();
@@ -225,12 +269,16 @@ void ShapesApp::DrawScene()
 			mfxWorldInvTranspose->SetMatrix(reinterpret_cast<float*>(&worldInvTranspose));
 			mfxWorldViewProj->SetMatrix(reinterpret_cast<float*>(&worldViewProj));
 			mfxMaterial->SetRawValue(&mMaterial, 0, sizeof(mMaterial));
-
 			mfxWorldViewProj->SetMatrix(reinterpret_cast<float*>(&(world*viewProj)));
+
+			float blendFactor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+			md3dImmediateContext->OMSetBlendState(RenderStates::TransparentBS, blendFactor, 0xffffffff);
+
 			mTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
 			md3dImmediateContext->DrawIndexed(mCylinderIndexCount, mCylinderIndexOffset, mCylinderVertexOffset);
 
     }
+
 
 	HR(mSwapChain->Present(0, 0));
 }
@@ -340,10 +388,12 @@ void ShapesApp::Redraw()
 
 	f >> t >> mCylHeight;
 	f >> t >> mCylRadius;
+	f >> t >> mCylAlpha;
 
 	f.close();
 
 	BuildGeometryBuffers();
+	mMaterial.Diffuse.w = mCylAlpha;
 }
  
 void ShapesApp::BuildFX()
