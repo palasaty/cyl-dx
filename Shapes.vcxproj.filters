@@ -83,4 +83,9 @@
       <Filter>FX</Filter>
     </CustomBuild>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="FX\LightHelper.fx">
+      <Filter>FX</Filter>
+    </FxCompile>
+  </ItemGroup>
 </Project>

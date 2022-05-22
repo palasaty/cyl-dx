@@ -20,7 +20,8 @@ using namespace DirectX;
 struct Vertex
 {
 	XMFLOAT3 Pos;
-	XMFLOAT4 Color;
+	//XMFLOAT4 Color;
+	XMFLOAT3 Normal;
 };
 
 
@@ -51,7 +52,11 @@ private:
 	ID3DX11Effect* mFX;
 	ID3DX11EffectTechnique* mTech;
 	ID3DX11EffectMatrixVariable* mfxWorldViewProj;
+	ID3DX11EffectMatrixVariable* mfxWorld;
+	ID3DX11EffectMatrixVariable* mfxWorldInvTranspose;
+	ID3DX11EffectVectorVariable* mfxEyePosW;
 	ID3DX11EffectVariable* mfxDirLight;
+	ID3DX11EffectVariable* mfxMaterial;
 
 	ID3D11InputLayout* mInputLayout;
 
@@ -68,6 +73,7 @@ private:
 	XMFLOAT4X4 mProj;
 
 	DirectionalLight mDirLight;
+	Material mMaterial;
 
 	int mBoxVertexOffset;
 	int mGridVertexOffset;
@@ -83,6 +89,8 @@ private:
 	UINT mGridIndexCount;
 	UINT mSphereIndexCount;
 	UINT mCylinderIndexCount;
+
+	XMFLOAT3 mEyePosW;
 
 	float mTheta;
 	float mPhi;
@@ -122,6 +130,10 @@ ShapesApp::ShapesApp(HINSTANCE hInstance)
 	mDirLight.Diffuse = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
 	mDirLight.Specular = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
 	mDirLight.Direction = XMFLOAT3(0.57735f, -0.57735f, 0.57735f);
+
+	mMaterial.Ambient = XMFLOAT4(0.48f, 0.77f, 0.46f, 1.0f);
+	mMaterial.Diffuse = XMFLOAT4(0.48f, 0.77f, 0.46f, 1.0f);
+	mMaterial.Specular = XMFLOAT4(0.2f, 0.2f, 0.2f, 16.0f);
 
 	XMMATRIX I = XMMatrixIdentity();
 	XMStoreFloat4x4(&mGridWorld, I);
@@ -204,50 +216,31 @@ void ShapesApp::DrawScene()
 	md3dImmediateContext->IASetIndexBuffer(mIB, DXGI_FORMAT_R32_UINT, 0);
 
 	// Set constants
-	
+		
 	XMMATRIX view  = XMLoadFloat4x4(&mView);
 	XMMATRIX proj  = XMLoadFloat4x4(&mProj);
 	XMMATRIX viewProj = view*proj;
+
+	mfxDirLight->SetRawValue(&mDirLight, 0, sizeof(mDirLight));
+	mfxEyePosW->SetRawValue(&mEyePosW, 0, sizeof(mEyePosW));
  
     D3DX11_TECHNIQUE_DESC techDesc;
     mTech->GetDesc( &techDesc );
     for(UINT p = 0; p < techDesc.Passes; ++p)
     {
-		// Draw the grid.
-		XMMATRIX world = XMLoadFloat4x4(&mGridWorld);
-		/*mfxWorldViewProj->SetMatrix(reinterpret_cast<float*>(&(world * viewProj)));
-		mTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(mGridIndexCount, mGridIndexOffset, mGridVertexOffset);*/
+		    XMMATRIX world = XMLoadFloat4x4(&mCylWorld[0]);
+			XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+			XMMATRIX worldViewProj = world * view * proj;
 
-		// Draw the box.
-		world = XMLoadFloat4x4(&mBoxWorld);
-		/*mfxWorldViewProj->SetMatrix(reinterpret_cast<float*>(&(world * viewProj)));
-		mTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(mBoxIndexCount, mBoxIndexOffset, mBoxVertexOffset);*/
+			mfxWorld->SetMatrix(reinterpret_cast<float*>(&world));
+			mfxWorldInvTranspose->SetMatrix(reinterpret_cast<float*>(&worldInvTranspose));
+			mfxWorldViewProj->SetMatrix(reinterpret_cast<float*>(&worldViewProj));
+			mfxMaterial->SetRawValue(&mMaterial, 0, sizeof(mMaterial));
 
-		// Draw center sphere.
-		world = XMLoadFloat4x4(&mCenterSphere);
-		/*mfxWorldViewProj->SetMatrix(reinterpret_cast<float*>(&(world * viewProj)));
-		mTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(mSphereIndexCount, mSphereIndexOffset, mSphereVertexOffset);*/
-
-		// Draw the cylinders.
-		//for(int i = 0; i < 10; ++i)
-		//{
-			world = XMLoadFloat4x4(&mCylWorld[0]);
 			mfxWorldViewProj->SetMatrix(reinterpret_cast<float*>(&(world*viewProj)));
 			mTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
 			md3dImmediateContext->DrawIndexed(mCylinderIndexCount, mCylinderIndexOffset, mCylinderVertexOffset);
-		//}
 
-		// Draw the spheres.
-		/*for (int i = 0; i < 10; ++i)
-		{
-			world = XMLoadFloat4x4(&mSphereWorld[i]);
-			mfxWorldViewProj->SetMatrix(reinterpret_cast<float*>(&(world*viewProj)));
-			mTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-			md3dImmediateContext->DrawIndexed(mSphereIndexCount, mSphereIndexOffset, mSphereVertexOffset);
-		}*/
     }
 
 	HR(mSwapChain->Present(0, 0));
@@ -355,25 +348,26 @@ void ShapesApp::BuildGeometryBuffers()
 	for(size_t i = 0; i < box.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos   = box.Vertices[i].Position;
-		vertices[k].Color = red;
+		//vertices[k].Color = red;
 	}
 
 	for(size_t i = 0; i < grid.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos   = grid.Vertices[i].Position;
-		vertices[k].Color = red;
+		//vertices[k].Color = red;
 	}
 
 	for(size_t i = 0; i < sphere.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos   = sphere.Vertices[i].Position;
-		vertices[k].Color = red;
+		//vertices[k].Color = red;
 	}
 
 	for(size_t i = 0; i < cylinder.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos   = cylinder.Vertices[i].Position;
-		vertices[k].Color = red;
+		vertices[k].Normal = cylinder.Vertices[i].Normal;
+		//vertices[k].Color = red;
 	}
 
     D3D11_BUFFER_DESC vbd;
@@ -424,6 +418,11 @@ void ShapesApp::BuildFX()
 
 	mTech    = mFX->GetTechniqueByName("ColorTech");
 	mfxWorldViewProj = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
+	mfxWorld = mFX->GetVariableByName("gWorld")->AsMatrix();
+	mfxWorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
+	mfxEyePosW = mFX->GetVariableByName("gEyePosW")->AsVector();
+	mfxDirLight = mFX->GetVariableByName("gDirLight");
+	mfxMaterial = mFX->GetVariableByName("gMaterial");
 }
 
 void ShapesApp::BuildVertexLayout()
@@ -432,7 +431,8 @@ void ShapesApp::BuildVertexLayout()
 	D3D11_INPUT_ELEMENT_DESC vertexDesc[] =
 	{
 		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-		{"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
+		//{"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
+		{"NORMAL",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
 	};
 
 	// Create the input layout
