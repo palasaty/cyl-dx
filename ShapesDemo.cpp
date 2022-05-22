@@ -35,6 +35,7 @@ public:
 	void OnResize();
 	void UpdateScene(float dt);
 	void DrawScene(); 
+	void Redraw();
 
 	void OnMouseDown(WPARAM btnState, int x, int y);
 	void OnMouseUp(WPARAM btnState, int x, int y);
@@ -62,12 +63,7 @@ private:
 
 	ID3D11RasterizerState* mWireframeRS;
 
-	// Define transformations from local spaces to world space.
-	XMFLOAT4X4 mSphereWorld[10];
-	XMFLOAT4X4 mCylWorld[10];
-	XMFLOAT4X4 mBoxWorld;
-	XMFLOAT4X4 mGridWorld;
-	XMFLOAT4X4 mCenterSphere;
+	XMFLOAT4X4 mCylWorld;
 
 	XMFLOAT4X4 mView;
 	XMFLOAT4X4 mProj;
@@ -75,19 +71,8 @@ private:
 	DirectionalLight mDirLight;
 	Material mMaterial;
 
-	int mBoxVertexOffset;
-	int mGridVertexOffset;
-	int mSphereVertexOffset;
 	int mCylinderVertexOffset;
-
-	UINT mBoxIndexOffset;
-	UINT mGridIndexOffset;
-	UINT mSphereIndexOffset;
 	UINT mCylinderIndexOffset;
-
-	UINT mBoxIndexCount;
-	UINT mGridIndexCount;
-	UINT mSphereIndexCount;
 	UINT mCylinderIndexCount;
 
 	XMFLOAT3 mEyePosW;
@@ -95,6 +80,9 @@ private:
 	float mTheta;
 	float mPhi;
 	float mRadius;
+
+	float mCylHeight;
+	float mCylRadius;
 
 	POINT mLastMousePos;
 };
@@ -119,7 +107,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
 ShapesApp::ShapesApp(HINSTANCE hInstance)
 : D3DApp(hInstance), mVB(0), mIB(0), mFX(0), mTech(0),
   mfxWorldViewProj(0), mInputLayout(0), mWireframeRS(0),
-  mTheta(1.5f*MathHelper::Pi), mPhi(0.1f*MathHelper::Pi), mRadius(15.0f)
+  mTheta(1.5f*MathHelper::Pi), mPhi(0.1f*MathHelper::Pi), mRadius(15.0f),
+  mCylHeight(5), mCylRadius(1.5)
 {
 	mMainWndCaption = L"Demo";
 	
@@ -136,11 +125,11 @@ ShapesApp::ShapesApp(HINSTANCE hInstance)
 	mMaterial.Specular = XMFLOAT4(0.2f, 0.2f, 0.2f, 16.0f);
 
 	XMMATRIX I = XMMatrixIdentity();
-	XMStoreFloat4x4(&mGridWorld, I);
+	//XMStoreFloat4x4(&mGridWorld, I);
 	XMStoreFloat4x4(&mView, I);
 	XMStoreFloat4x4(&mProj, I);
 
-	XMStoreFloat4x4(&mCylWorld[0], XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&mCylWorld, XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 }
 
 ShapesApp::~ShapesApp()
@@ -228,7 +217,7 @@ void ShapesApp::DrawScene()
     mTech->GetDesc( &techDesc );
     for(UINT p = 0; p < techDesc.Passes; ++p)
     {
-		    XMMATRIX world = XMLoadFloat4x4(&mCylWorld[0]);
+		    XMMATRIX world = XMLoadFloat4x4(&mCylWorld);
 			XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
 			XMMATRIX worldViewProj = world * view * proj;
 
@@ -293,81 +282,24 @@ void ShapesApp::OnMouseMove(WPARAM btnState, int x, int y)
 
 void ShapesApp::BuildGeometryBuffers()
 {
-	GeometryGenerator::MeshData box;
-	GeometryGenerator::MeshData grid;
-	GeometryGenerator::MeshData sphere;
 	GeometryGenerator::MeshData cylinder;
 
 	GeometryGenerator geoGen;
-	geoGen.CreateBox(1.0f, 1.0f, 1.0f, box);
-	geoGen.CreateGrid(20.0f, 30.0f, 60, 40, grid);
-	geoGen.CreateSphere(0.5f, 20, 20, sphere);
-	//geoGen.CreateGeosphere(0.5f, 2, sphere);
-	geoGen.CreateCylinder(1.5f, 1.5f, 5.0f, 200, 200, cylinder);
+	geoGen.CreateCylinder(mCylRadius, mCylRadius, mCylHeight, 200, 200, cylinder);
 
-	// Cache the vertex offsets to each object in the concatenated vertex buffer.
-	mBoxVertexOffset      = 0;
-	mGridVertexOffset     = box.Vertices.size();
-	mSphereVertexOffset   = mGridVertexOffset + grid.Vertices.size();
-	mCylinderVertexOffset = mSphereVertexOffset + sphere.Vertices.size();
-
-	// Cache the index count of each object.
-	mBoxIndexCount      = box.Indices.size();
-	mGridIndexCount     = grid.Indices.size();
-	mSphereIndexCount   = sphere.Indices.size();
+	mCylinderVertexOffset = 0;
 	mCylinderIndexCount = cylinder.Indices.size();
-
-	// Cache the starting index for each object in the concatenated index buffer.
-	mBoxIndexOffset      = 0;
-	mGridIndexOffset     = mBoxIndexCount;
-	mSphereIndexOffset   = mGridIndexOffset + mGridIndexCount;
-	mCylinderIndexOffset = mSphereIndexOffset + mSphereIndexCount;
+	mCylinderIndexOffset = 0;
 	
-	UINT totalVertexCount = 
-		box.Vertices.size() + 
-		grid.Vertices.size() + 
-		sphere.Vertices.size() +
-		cylinder.Vertices.size();
-
-	UINT totalIndexCount = 
-		mBoxIndexCount + 
-		mGridIndexCount + 
-		mSphereIndexCount +
-		mCylinderIndexCount;
-
-	//
-	// Extract the vertex elements we are interested in and pack the
-	// vertices of all the meshes into one vertex buffer.
-	//
+	UINT totalVertexCount = cylinder.Vertices.size();
+	UINT totalIndexCount = mCylinderIndexCount;
 
 	std::vector<Vertex> vertices(totalVertexCount);
 
-	XMFLOAT4 red(1.0f, 0.0f, 0.0f, 0.0f);
-
-	UINT k = 0;
-	for(size_t i = 0; i < box.Vertices.size(); ++i, ++k)
+	for(size_t i = 0; i < cylinder.Vertices.size(); ++i)
 	{
-		vertices[k].Pos   = box.Vertices[i].Position;
-		//vertices[k].Color = red;
-	}
-
-	for(size_t i = 0; i < grid.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos   = grid.Vertices[i].Position;
-		//vertices[k].Color = red;
-	}
-
-	for(size_t i = 0; i < sphere.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos   = sphere.Vertices[i].Position;
-		//vertices[k].Color = red;
-	}
-
-	for(size_t i = 0; i < cylinder.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos   = cylinder.Vertices[i].Position;
-		vertices[k].Normal = cylinder.Vertices[i].Normal;
-		//vertices[k].Color = red;
+		vertices[i].Pos   = cylinder.Vertices[i].Position;
+		vertices[i].Normal = cylinder.Vertices[i].Normal;
 	}
 
     D3D11_BUFFER_DESC vbd;
@@ -385,9 +317,6 @@ void ShapesApp::BuildGeometryBuffers()
 	//
 
 	std::vector<UINT> indices;
-	indices.insert(indices.end(), box.Indices.begin(), box.Indices.end());
-	indices.insert(indices.end(), grid.Indices.begin(), grid.Indices.end());
-	indices.insert(indices.end(), sphere.Indices.begin(), sphere.Indices.end());
 	indices.insert(indices.end(), cylinder.Indices.begin(), cylinder.Indices.end());
 
 	D3D11_BUFFER_DESC ibd;
@@ -399,6 +328,22 @@ void ShapesApp::BuildGeometryBuffers()
     D3D11_SUBRESOURCE_DATA iinitData;
     iinitData.pSysMem = &indices[0];
     HR(md3dDevice->CreateBuffer(&ibd, &iinitData, &mIB));
+}
+
+void ShapesApp::Redraw()
+{
+	std::ifstream f("config.txt");
+	if (!f.is_open())
+		MessageBox(0, L"Failed to open config", 0, 0);
+
+	std::string t;
+
+	f >> t >> mCylHeight;
+	f >> t >> mCylRadius;
+
+	f.close();
+
+	BuildGeometryBuffers();
 }
  
 void ShapesApp::BuildFX()
