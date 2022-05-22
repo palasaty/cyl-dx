@@ -47,7 +47,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>D:\repos\FX11\Binary;D:\repos\FX11\inc;..\..\Common;$(IncludePath)</IncludePath>
+    <IncludePath>Effects\Binary;Effects\inc;..\..\Common;$(IncludePath)</IncludePath>
     <LibraryPath>D:\repos\FX11\Bin\Desktop_2019_Win10\x64\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -84,21 +84,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\repos\FX11\d3dxGlobal.cpp" />
-    <ClCompile Include="..\..\..\repos\FX11\EffectAPI.cpp" />
-    <ClCompile Include="..\..\..\repos\FX11\EffectLoad.cpp" />
-    <ClCompile Include="..\..\..\repos\FX11\EffectNonRuntime.cpp" />
-    <ClCompile Include="..\..\..\repos\FX11\EffectReflection.cpp" />
-    <ClCompile Include="..\..\..\repos\FX11\EffectRuntime.cpp" />
     <ClCompile Include="..\..\Common\d3dApp.cpp" />
     <ClCompile Include="..\..\Common\d3dUtil.cpp" />
     <ClCompile Include="..\..\Common\GameTimer.cpp" />
     <ClCompile Include="..\..\Common\GeometryGenerator.cpp" />
     <ClCompile Include="..\..\Common\MathHelper.cpp" />
+    <ClCompile Include="Effects\d3dxGlobal.cpp" />
+    <ClCompile Include="Effects\EffectAPI.cpp" />
+    <ClCompile Include="Effects\EffectLoad.cpp" />
+    <ClCompile Include="Effects\EffectNonRuntime.cpp" />
+    <ClCompile Include="Effects\EffectReflection.cpp" />
+    <ClCompile Include="Effects\EffectRuntime.cpp" />
     <ClCompile Include="ShapesDemo.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\repos\FX11\Effect.h" />
-    <ClInclude Include="..\..\..\repos\FX11\EffectLoad.h" />
     <ClInclude Include="..\..\Common\d3dApp.h" />
     <ClInclude Include="..\..\Common\d3dUtil.h" />
     <ClInclude Include="..\..\Common\GameTimer.h" />

@@ -42,19 +42,22 @@
     <ClCompile Include="..\..\..\repos\FX11\d3dxGlobal.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\repos\FX11\EffectAPI.cpp">
+    <ClCompile Include="Effects\d3dxGlobal.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\repos\FX11\EffectLoad.cpp">
+    <ClCompile Include="Effects\EffectAPI.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\repos\FX11\EffectNonRuntime.cpp">
+    <ClCompile Include="Effects\EffectLoad.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\repos\FX11\EffectReflection.cpp">
+    <ClCompile Include="Effects\EffectNonRuntime.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\repos\FX11\EffectRuntime.cpp">
+    <ClCompile Include="Effects\EffectReflection.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Effects\EffectRuntime.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
@@ -72,12 +75,6 @@
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\MathHelper.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\repos\FX11\Effect.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\repos\FX11\EffectLoad.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
