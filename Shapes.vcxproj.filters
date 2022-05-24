@@ -24,9 +24,6 @@
     <ClCompile Include="ShapesDemo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\repos\FX11\d3dxGlobal.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="Effects\d3dxGlobal.cpp">
       <Filter>Common</Filter>
     </ClCompile>
